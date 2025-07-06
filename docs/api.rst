@@ -11,7 +11,7 @@ This section details the public API of ConnectoViz, documenting all discovered m
 connectoviz.plotting Module
 ---------------------------
 
-.. automodule:: connectoviz.plotting.circular_plots
+.. automodule:: connectoviz.plotting.circular_graph
    :members:
    :undoc-members:
    :show-inheritance:
@@ -36,5 +36,3 @@ Here is a summary of key components within the ConnectoViz API:
    connectoviz.plotting.circular_graph
    connectoviz.core.connectome
    connectoviz.visualization.circular_plot_builder.CircularPlotBuilder
-   # connectoviz.plotting.circular_plots.plot_circular_connectome # If it's a function directly in circular_plots.py
-   # connectoviz.core.connectome.YourMainConnectomeClass

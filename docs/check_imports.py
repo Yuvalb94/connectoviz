@@ -32,17 +32,17 @@ print("-" * 30)
 
 # --- Test importing a specific module you use in api.rst ---
 try:
-    import connectoviz.plotting.circular_plots
+    import connectoviz.plotting.circular_graph
 
-    print("Successfully imported 'connectoviz.plotting.circular_plots'!")
+    print("Successfully imported 'connectoviz.plotting.circular_graph'!")
     # Optionally, test a function from it
-    # from connectoviz.plotting.circular_plots import plot_circular_connectome
+    # from connectoviz.plotting.circular_graph import plot_circular_connectome
     # print(f"  Found plot_circular_connectome: {plot_circular_connectome}")
 except Exception as e:
-    print(f"Failed to import 'connectoviz.plotting.circular_plots': {e}")
-    print("  Hint: Check for missing __init__.py in 'plotting' or 'circular_plots.py'.")
+    print(f"Failed to import 'connectoviz.plotting.circular_graph': {e}")
+    print("  Hint: Check for missing __init__.py in 'plotting' or 'circular_graph.py'.")
     print(
-        "  Hint: Check for syntax errors or missing dependencies within 'circular_plots.py' itself."
+        "  Hint: Check for syntax errors or missing dependencies within 'circular_graph.py' itself."
     )
 
 print("-" * 30)

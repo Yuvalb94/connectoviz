@@ -9,7 +9,7 @@ Development Lead
 
 Development Team
 ----------------
-* Gaia Negev <gaianegev@gmail.com>
+* Gaia Negev <>
 * Tzlil Tabib <>
 * Yuval Bonneh <>
 * Joseph Schwartz <>

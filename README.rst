@@ -2,8 +2,6 @@
 ConnectoViz: Circular Connectome Visualization
 ===============================================
 
-
-
 ========
 Overview
 ========
@@ -59,11 +57,7 @@ Overview
 .. |pre-commit| image:: https://img.shields.io/badge/pre--commit-enabled-brightgreen?logo=pre-commit&logoColor=white
         :target: https://github.com/pre-commit/pre-commit
 
-
-
-
 A robust and customizable Python package for visualizing circular connectomes.
-
 
 * Free software: MIT license
 * Documentation: https://connectoviz.readthedocs.io.
@@ -71,8 +65,11 @@ A robust and customizable Python package for visualizing circular connectomes.
 
 Features
 --------
-
-* TODO
+This package provides a comprehensive set of tools for visualizing circular connectomes.
+It recieves a connectome matrix and generates a circular plot, allowing for detailed exploration of connectivity patterns.
+* The connectome can base on the following atlases:
+* You can group the nodes as you wish, according to metadata (gray matter volume, cortex syntax, etc.)
+* You can choose your favourite color palette
 
 Credits
 -------

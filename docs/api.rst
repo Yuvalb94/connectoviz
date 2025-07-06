@@ -6,11 +6,14 @@ This section details the public API of ConnectoViz, documenting all discovered m
 API Summaries
 -------------
 
+
 Here is a summary of key components within the ConnectoViz API:
 
 .. autosummary::
    :toctree: _autosummary
    :nosignatures:
 
-   # Keep ONLY this one line for testing
-   connectoviz.core.connectome
+    connectoviz.core.connectome
+    connectoviz.core.metadata
+    connectoviz.core.visualization
+    connectoviz.visualization.circular_graph_legacy

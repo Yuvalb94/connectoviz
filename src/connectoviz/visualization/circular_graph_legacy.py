@@ -211,28 +211,33 @@ class CircularGraph:
         display_group_names: bool,
     ):
         """
-        Main plotting function
+        Main plotting class for circular connectome visualization.
 
-        Args:
-            connectivity_matrix (np.ndarray):
-                Weighted connectivity matrix
-            groups (list):
-                List of dicts, one for each hemi, of a format Dictionary<string,List<(int, string)>.
-                Dictionary of groups of ROIs, divided by the grouping variable.
-                The keys are the groups names. The values are lists of tuples, each tuple represents a ROI in the group.
-                Each tuple contains the index of a ROI in the connectivity matrix (starting from zero) and the ROI name.
-                for example:  {"Frontal lobe": [(0, precentral gyrus), (1, SFG), (2, MFG), (3, IFG)}
-                Used to compute the layout
-            metadata_map (dict):
-                Dict mapping node_label to metadata value. Used to color code metadata ring
-            metadata_label (str or None):
-                Name of metadata parameter. Used to handle metadata display
-            row_names_map (dict):
-                Dict mapping node_label to node name value. Used to display node names
-            display_node_names (bool):
-                Flag for node labels display mode
-            display_group_names (bool):
-                Flag for group labels display mode
+        Parameters
+        ----------
+        connectivity_matrix : np.ndarray
+            Weighted connectivity matrix.
+        groups : list of dict
+            List of dictionaries, one for each hemisphere. Each dictionary
+            maps a group name (str) to a list of tuples. Each tuple represents
+            a Region of Interest (ROI) within the group, containing its
+            index in the connectivity matrix (int, starting from zero) and
+            its name (str).
+            Example: ``{"Frontal lobe": [(0, "precentral gyrus"), (1, "SFG")]}``
+            This parameter is used to compute the layout.
+        metadata_map : dict
+            Dictionary mapping ``node_label`` (str) to its corresponding
+            metadata value. This is used to color-code the metadata ring.
+        metadata_label : str or None
+            Name of the metadata parameter. Used to handle the display
+            of metadata.
+        row_names_map : dict
+            Dictionary mapping ``node_label`` (str) to its display name (str).
+            Used to display node names.
+        display_node_names : bool
+            Flag to control the display of individual node labels.
+        display_group_names : bool
+            Flag to control the display of group labels.
         """
 
         self.matrix = connectivity_matrix

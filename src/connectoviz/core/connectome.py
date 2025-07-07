@@ -1,8 +1,12 @@
+# all imports of parser and handle_layout_preferences should be edited back
+# basd on original package structure  (ALSo change parser to parsers)
+
+#
 # connectoviz/core/connectome.py
 
 import numpy as np
 import pandas as pd
-from typing import Union, Dict, List, Optional
+from typing import Union, Dict, List, Optional, Any
 from connectoviz.io.parsers import (
     parse_matrix,
     masking,
@@ -11,6 +15,10 @@ from connectoviz.io.parsers import (
     compare_mapping,
     atlas_check,
     merge_metadata,
+)
+from connectoviz.utils.handle_layout_prefrences import (
+    handle_layout,
+    handle_layers,
 )
 
 # next line commented out so pre commit wont kill me
@@ -52,10 +60,12 @@ class Connectome:
     ):
         self.con_mat: np.ndarray = parse_matrix(con_mat)
         self.atlas: pd.DataFrame = atlas
-        self.node_metadata: pd.DataFrame = self._process_metadata(node_metadata)
         self.mapping, self.index_col, self.label_col = self._validate_maps(
             mapping, node_vec, label_vec, index_col, label_col
         )
+        self.node_metadata: pd.DataFrame = self._process_metadata(node_metadata)
+
+        self.merged_metadata: Optional[pd.DataFrame] = self._apply_merge()
 
     def _process_metadata(self, metadata):
         # Your logic for checking and standardizing metadata
@@ -65,7 +75,7 @@ class Connectome:
 
         return check_metadata(metadata, atlas=self.atlas, mapping=self.mapping)
 
-    def apply_merge(self):
+    def _apply_merge(self):
         """
         use the merge_metadata function to merge the atlas with metadata
         """
@@ -81,9 +91,7 @@ class Connectome:
             raise ValueError(
                 "Node metadata does not match the number of nodes in the connectivity matrix."
             )
-        combined_metadata = merge_metadata(
-            self.atlas, self.node_metadata, self.con_mat.shape[0].astype(int)
-        )
+        combined_metadata = merge_metadata(self.atlas, self.node_metadata)
 
         return combined_metadata
 
@@ -106,6 +114,97 @@ class Connectome:
                 self.atlas, index_col, label_col_r
             )
             return mapping, validated_index_col, validated_label_col
+        # if mapping is None:
+        return None, None, None
+
+    # create a method to create  connnectom named
+    # add a function from_input to create a Connectome from inputs
+    # functions assumes con_mat is a square 2D structure, atlas is a DataFrame, and node_metadata is a DataFrame
+    # and mapping is an optional dict or DataFrame
+    @classmethod
+    def from_inputs(
+        cls,
+        con_mat: np.ndarray,
+        atlas: pd.DataFrame,
+        node_metadata: Optional[pd.DataFrame],
+        mapping: Optional[Union[Dict[str, str], pd.DataFrame]] = None,
+    ):
+        """
+        Create a Connectome instance from input parameters.
+
+        Parameters
+        ----------
+        con_mat : array-like
+            Connectivity matrix (square 2D structure).
+        atlas : pd.DataFrame
+            Atlas reference table.
+        node_metadata : pd.DataFrame
+            Node-level metadata (same length as con_mat).
+        mapping : dict or DataFrame, optional
+            Optional remapping of node indices to labels.
+
+        Returns
+        -------
+        Connectome
+            A Connectome instance.
+        """
+
+        # check mapping
+
+        # Validate and process the atlas
+        atlas_bool, _, _ = atlas_check(atlas)
+        if not atlas_bool:
+            raise ValueError("Atlas is not valid or empty.")
+
+        return Connectome(
+            con_mat=con_mat,
+            atlas=atlas,
+            node_metadata=node_metadata,
+            mapping=mapping,
+        )
+
+    def reorder_nodes(self, layout_dict: Dict[str, Any]):
+        """
+        Reorder the connectivity matrix by indicated input.
+        Parameters
+        ----------
+        layout_dict : dict
+            Dictionary containing layout preferences. It can include:
+            - 'hemi': bool, whether to reorder by hemisphere.
+            - 'other': bool, whether to include nodes not grouped by the specified hemisphere.
+            - 'grouping': str, metadata column to group nodes by.
+            - 'display_node_names': bool, whether to display node names.
+            - 'display_group_names': bool, whether to display group names.
+        Returns
+        h
+
+
+
+        """
+        # dfs_and_more=handle_layout
+        handled_nodes, _, _, _ = handle_layout(self.node_metadata, layout_dict)
+        # set the handeled nodes as the merged metadata
+        self.merged_metadata = handled_nodes
+
+    def apply_layers(self, layers_list: List[str]):
+        """
+        Apply layers to the connectivity matrix based on the provided layers list.
+        for know- just filtering the metadata based on it
+        Parameters
+        ----------
+        layers_list : list
+            List of metadata columns to apply as layers.
+        Returns
+        -------
+        """
+        if self.merged_metadata is None or self.merged_metadata.empty:
+            raise ValueError("Merged metadata is not specified or empty.")
+        # check if the layers_list is valid
+        gilterd_metadata = handle_layers(self.merged_metadata, layers_list)
+        if gilterd_metadata is None or gilterd_metadata.empty:
+            raise ValueError("Filtered metadata is not specified or empty.")
+
+        self.merged_metadata = gilterd_metadata
 
     def to_numpy(self):
         return self.con_mat.copy()
@@ -129,7 +228,7 @@ class Connectome:
         mask : array-like
             Binary mask to apply to the connectivity matrix.
         """
-        self.con_mat = masking(self.con_mat, mask)
+        self.con_mat = masking(mask, self.con_mat)
 
     def summary(self):
         return (

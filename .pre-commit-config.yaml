@@ -11,20 +11,18 @@
 repos:
     # Black: The uncompromising Python code formatter.
     # Ensures consistent code style across the entire project.
+    # Black for formatting
     - repo: https://github.com/psf/black
-      rev: 24.4.2 # Use a specific version for reproducibility
+      rev: 24.4.2
       hooks:
           - id: black
 
-    # Ruff: An extremely fast Python linter and formatter, written in Rust.
-    # Replaces Flake8, Isort, Pylint, etc., for many checks.
+    # Ruff for lint fixes ONLY
     - repo: https://github.com/astral-sh/ruff-pre-commit
-      rev: v0.5.2 # Use a specific version
+      rev: v0.5.2
       hooks:
           - id: ruff
-            args: ['--fix'] # Automatically fix simple linting issues
-          - id: ruff-format # Integrate Ruff's formatter
-            args: []
+            args: ['--fix']
 
     # MyPy: Static type checker for Python.
     # Helps catch type-related bugs and improves code readability/maintainability.

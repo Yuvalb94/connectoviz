@@ -14,6 +14,4 @@ Here is a summary of key components within the ConnectoViz API:
    :nosignatures:
 
     connectoviz.core.connectome
-    connectoviz.core.metadata
-    connectoviz.core.visualization
     connectoviz.visualization.circular_graph_legacy

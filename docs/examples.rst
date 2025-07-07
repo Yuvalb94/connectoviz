@@ -2,11 +2,10 @@
 Examples
 ========
 
-Basic Example of a connectome
------------------------------
+The Main Function
+----------------
 
-Subsection Heading
-^^^^^^^^^^^^^^^^^^
+.. autosummary::
+   :toctree: _autosummary_functions
 
-Sub-subsection Heading
-""""""""""""""""""""""
+    connectoviz.plot_circular_connectome_template.plot_circular_connectome

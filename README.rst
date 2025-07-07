@@ -20,7 +20,7 @@ Overview
       - |license|
 
 .. |docs| image:: https://readthedocs.org/projects/connectoviz/badge/?version=latest
-    :target: https://connectoviz.readthedocs.io/en/latest/?version=latest
+    :target: https://gaianegev13-connectoviz.readthedocs.io/en/latest/
     :alt: Documentation Status
 
 .. |github-actions| image:: https://github.com/GalKepler/connectoviz/actions/workflows/ci.yml/badge.svg
@@ -60,16 +60,18 @@ Overview
 A robust and customizable Python package for visualizing circular connectomes.
 
 * Free software: MIT license
-* Documentation: https://connectoviz.readthedocs.io.
+* Documentation: https://gaianegev13-connectoviz.readthedocs.io/en/latest
 
 
 Features
 --------
 This package provides a comprehensive set of tools for visualizing circular connectomes.
-It recieves a connectome matrix and generates a circular plot, allowing for detailed exploration of connectivity patterns.
-* The connectome can base on the following atlases:
-* You can group the nodes as you wish, according to metadata (gray matter volume, cortex syntax, etc.)
-* You can choose your favourite color palette
+It receives a connectome matrix and generates a circular plot, allowing for detailed exploration of connectivity patterns.
+
+* The connectome can be based on the following, widely used atlases: fan2016, huang2022, schaefer2018 and schaefer2018tian2020.
+* You can group the nodes as you wish, according to metadata (gray matter volume, cortex syntax, etc.), as long as you have a mapping of the nodes to the groups.
+* The connectome can be filtered by a threshold, which is set to 0.1 by default.
+* You can choose your favorite color palette
 
 Credits
 -------

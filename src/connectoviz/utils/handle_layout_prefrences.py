@@ -43,6 +43,10 @@ def handle_hemisphere(
     if "hemispheric" in combined_metadata.columns:
         # set as hemi coloumn
         combined_metadata["hemi"] = combined_metadata["hemispheric"]
+    # check it its called 'hemisphere' or 'Hemi'
+    elif "hemisphere" in combined_metadata.columns:
+        # set as hemi coloumn
+        combined_metadata["hemi"] = combined_metadata["hemisphere"]
     elif "Hemi" in combined_metadata.columns:
         # set as hemi coloumn
         combined_metadata["hemi"] = combined_metadata["Hemi"]
@@ -51,9 +55,7 @@ def handle_hemisphere(
             lambda x: (
                 "left"
                 if x.startswith("L_") or x.endswith("_L")
-                else "right"
-                if x.startswith("R_") or x.endswith("_R")
-                else "other"
+                else "right" if x.startswith("R_") or x.endswith("_R") else "other"
             )
         )
     # fill empty values with 'other'

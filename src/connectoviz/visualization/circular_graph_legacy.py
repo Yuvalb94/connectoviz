@@ -5,13 +5,12 @@ import math
 from matplotlib.path import Path as MplPath
 import matplotlib.patches as patches
 from connectoviz.core.connectome import Connectome
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, Tuple
 from connectoviz.utils.handle_layout_prefrences import create_dictionary
-from typing import Tuple
 
 
 def normalize_and_set_threshold(
-    connectivity_matrix: np.ndarray, threshold: float = 0.1
+    connectivity_matrix: np.ndarray, threshold: Optional[float] = 0.1
 ):
     """
     This function gets a connectivity matrix and normalize its values between 0 to 1.
@@ -101,8 +100,14 @@ class CircularGraph:
           - Within each hemi, groups get arcs proportional to their node counts,
             separated by fixed `small_gap_arc`.
         """
-        left_dict, right_dict, else_dict = self.groups
-        group_names = list(left_dict.keys())
+        left_dict, right_dict, else_dict = (
+            self.groups
+            if len(self.groups) == 3
+            else (self.groups[0], self.groups[1], {})
+        )
+        # group_names = list(left_dict.keys()) joseph added
+        group_names = sorted(set(left_dict.keys()).union(right_dict.keys()))
+        # Ensure all groups are represented in the order of left, right if there isnt symmetry
         H = len(group_names)
 
         sg = small_gap_arc
@@ -441,6 +446,83 @@ class CircularGraph:
         return fig, ax
 
 
+def calcu_missing_pos_nodes_amount(
+    connectivity_matrix: np.ndarray, groups: list
+) -> tuple[list[tuple[str, int]], list[int]]:
+    """
+    Calculate the missing nodes in the connectivity matrix based on the row names map.
+    Parameters
+    ----------
+    connectivity_matrix: np.ndarray
+        n X n matrix where n is the number of ROIs in  the atlas.
+        Each cell in the matrix describes the connection between each pair of ROIs.
+    row_names_map: dict
+        A dictionary mapping node labels to node names.
+    Returns
+    -------
+    tuple that contains:
+    list[tuple[str,int]]
+         A list of tuples where each tuple contains the group name and the number of
+           nodes in that group.
+        includes all nodes in the connectivity matrix, all those that are grouped and those that are not grouped.
+    list
+        A list of ungrouped nodes in the connectivity matrix.
+    """
+    # All nodes in the matrix
+    all_nodes = set(range(connectivity_matrix.shape[0]))
+
+    # Nodes that are in any group
+    grouped_nodes = set()
+    for hemi in groups:
+        for grp_items in hemi.values():
+            grouped_nodes.update(idx for idx, _ in grp_items)
+
+    # Ungrouped nodes
+    ungrouped_nodes = all_nodes - grouped_nodes
+
+    print(f"Total nodes: {len(all_nodes)}")
+    print(f"Grouped nodes: {len(grouped_nodes)}")
+    print(f"Ungrouped nodes: {len(ungrouped_nodes)} → {sorted(ungrouped_nodes)}")
+    # create a tuple for total, grouped and ungrouped nodes
+    all_nodes_tuple = ("Total nodes", len(all_nodes))
+    grouped_nodes_tuple = ("Grouped nodes", len(grouped_nodes))
+    ungrouped_nodes_tuple = ("Ungrouped nodes", len(ungrouped_nodes))
+    return [
+        all_nodes_tuple,
+        grouped_nodes_tuple,
+        ungrouped_nodes_tuple,
+    ], list(ungrouped_nodes)
+
+
+# Generate functions to handle ungrouped nodes in the connectome visualization
+# These functions provide two options for dealing with ungrouped nodes:
+# 1. Assign them to a group named 'Ungrouped' in each hemisphere.
+# 2. Filter them out of the connectivity matrix entirely.
+# --- Option A: Assign ungrouped nodes to 'Ungrouped' ---
+def assign_ungrouped_to_group(groups, ungrouped_nodes):
+    """
+    Adds all ungrouped nodes into a group named 'Ungrouped' in each hemisphere.
+    """
+    for hemi_dict in groups:
+        if ungrouped_nodes:
+            hemi_dict["Ungrouped"] = [
+                (idx, f"Node_{idx}") for idx in sorted(ungrouped_nodes)
+            ]
+    return groups
+
+
+# --- Option B: Filter ungrouped nodes out of graph ---
+def filter_ungrouped_from_graph(connectome, ungrouped_nodes):
+    """
+    Filters ungrouped nodes out of the connectivity matrix.
+    """
+    filtered_matrix = connectome.con_mat.copy()
+    for idx in sorted(ungrouped_nodes):
+        filtered_matrix[idx, :] = 0
+        filtered_matrix[:, idx] = 0
+    return filtered_matrix
+
+
 # Generate function that visualizes a connectome using the CircularGraph class
 def visualize_connectome(
     connectome: Connectome,
@@ -448,7 +530,7 @@ def visualize_connectome(
     label: str = "Label",
     roi_names: str = "ROIname",
     track_by: Optional[str] = None,
-    threshold: float = 0.0,
+    threshold: Optional[float] = 0.0,
 ) -> CircularGraph:
     """
     Visualize a connectome using a circular graph layout.
@@ -494,8 +576,16 @@ def visualize_connectome(
         groups.append(
             create_dictionary(hemi_df, layout_dict["grouping"], label, roi_names)
         )
-    # get the connectivity matrix and normalize it
+    lis_len_nodes, ungrouped_nodes = calcu_missing_pos_nodes_amount(
+        connectome.con_mat, groups
+    )
+    # Option A: Assign ungrouped to 'Ungrouped'
+    groups = assign_ungrouped_to_group(groups, ungrouped_nodes)
     conn = connectome.con_mat
+    # Option B: Filter ungrouped nodes completely
+    # conn = filter_ungrouped_from_graph(connectome, grouped_nodes)
+    # get the connectivity matrix and normalize it
+
     filtered = normalize_and_set_threshold(conn, threshold=threshold)
     # get the metadata_map and metadata_label
     if (
@@ -570,5 +660,3 @@ def visualize_connectome(
     )
     # cg.show_graph()
     return cg
-
-

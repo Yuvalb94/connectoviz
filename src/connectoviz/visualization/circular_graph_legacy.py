@@ -396,18 +396,7 @@ class CircularGraph:
             return plt.get_cmap(cmap)
         return cmap  # assume it's a valid Colormap object
 
-    # def generate_graph(
-    #     self,
-    #     group_cmap=None,
-    #     metadata_cmap=None,
-    #     edge_cmap=None,
-    #     node_size=10,
-    #     edge_alpha=0.8,
-    #     figsize=(8, 8),
-    #     edge_scaling=3,
-    #     save_path=None,
-    #     show_graph=False,
-    # ):
+
     def generate_graph(
         self,
         group_cmap: Optional[Union[str, Colormap]] = None,

@@ -12,6 +12,7 @@ Here is a summary of key components within the ConnectoViz API:
 .. autosummary::
    :toctree: _autosummary
    :nosignatures:
+   :recursive:
 
     connectoviz.core.connectome
     connectoviz.visualization.circular_graph_legacy

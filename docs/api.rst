@@ -16,4 +16,4 @@ Here is a summary of key components within the ConnectoViz API:
 
     connectoviz.core.connectome
     connectoviz.visualization.circular_graph_legacy
-    connectoviz.io
+    connectoviz.io.parsers

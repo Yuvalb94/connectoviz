@@ -55,11 +55,17 @@ fig, ax = plot_circular_connectome(
     label="Label",
     roi_names="ROIname",
     tracks=["Yeo_7network"],
-    show_graph=True,
+    show_graph=False,
 )
 plt.show()
 
 # test huang2022
+# In this exampe -
+#    Metadata = None
+#    Grouping = CortexDivision_name
+#    Changed colormaps or grouping and edges
+#    Edge alpha = 0.4
+
 atlas_fname = r"huang2022/MNI152/space-MNI152_atlas-huang2022_res-1mm_dseg.csv"
 matrix_fname = r"huang2022.csv"
 # Now construct full paths
@@ -67,6 +73,7 @@ atlas_path = ATLAS_DIR / atlas_fname
 matrix_path = MAT_DIR / matrix_fname
 atlas_pd = pd.read_csv(atlas_path)
 con_mat = pd.read_csv(matrix_path, header=None).values
+
 plot_circular_connectome(
     con_mat=con_mat,
     atlas=atlas_pd,
@@ -78,27 +85,32 @@ plot_circular_connectome(
     display_node_names=False,
     label="HCPex_label",
     roi_names="RegionName1",
-)
-
-# # # test schaefer2018
-atlas_fname = r"schaefer2018tian2020/MNI152/space-MNI152_atlas-schaefer2018tian2020_res-1mm_den-100_div-7networks_dseg.csv"
-matrix_fname = r"schaefer2018tian2020_100_7.csv"
-# Now construct full paths
-atlas_path = ATLAS_DIR / atlas_fname
-matrix_path = MAT_DIR / matrix_fname
-atlas_pd = pd.read_csv(atlas_path)
-con_mat = pd.read_csv(matrix_path, header=None).values
-plot_circular_connectome(
-    con_mat=con_mat,
-    atlas=atlas_pd,
-    metadata_df=None,
-    hemispheric_par=True,
-    include_other=False,  # set to false as there is no 'other' group in this atlas
-    group_by="component",
-    display_group_names=True,
-    display_node_names=False,
-    label="index",  # Assuming 'index' is the label column in the atlas
-    roi_names="name",
-    tracks=["network"],
+    group_cmap="Pastel2",
+    edge_cmap="viridis",
+    show_graph=True,
+    edge_alpha=0.4,
 )
 plt.show()
+
+# # # # test schaefer2018
+# atlas_fname = r"schaefer2018tian2020/MNI152/space-MNI152_atlas-schaefer2018tian2020_res-1mm_den-100_div-7networks_dseg.csv"
+# matrix_fname = r"schaefer2018tian2020_100_7.csv"
+# # Now construct full paths
+# atlas_path = ATLAS_DIR / atlas_fname
+# matrix_path = MAT_DIR / matrix_fname
+# atlas_pd = pd.read_csv(atlas_path)
+# con_mat = pd.read_csv(matrix_path, header=None).values
+# plot_circular_connectome(
+#     con_mat=con_mat,
+#     atlas=atlas_pd,
+#     metadata_df=None,
+#     hemispheric_par=True,
+#     include_other=False,  # set to false as there is no 'other' group in this atlas
+#     group_by="component",
+#     display_group_names=True,
+#     display_node_names=False,
+#     label="index",  # Assuming 'index' is the label column in the atlas
+#     roi_names="name",
+#     tracks=["network"],
+# )
+# plt.show()

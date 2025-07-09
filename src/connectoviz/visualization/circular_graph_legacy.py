@@ -3,9 +3,12 @@ import networkx as nx
 import matplotlib.pyplot as plt
 import math
 from matplotlib.path import Path as MplPath
+from matplotlib.figure import Figure
+from matplotlib.axes import Axes
+from matplotlib.colors import Colormap
 import matplotlib.patches as patches
 from connectoviz.core.connectome import Connectome
-from typing import Dict, Any, Optional, Tuple
+from typing import Dict, Any, Optional, Tuple, Union
 from connectoviz.utils.handle_layout_prefrences import create_dictionary
 
 
@@ -314,7 +317,7 @@ class CircularGraph:
             path = MplPath(verts, codes)
 
             patch = patches.PathPatch(
-                path, edgecolor=color, linewidth=ww, alpha=0.8, facecolor="none"
+                path, edgecolor=color, linewidth=ww, alpha=edge_alpha, facecolor="none"
             )
             ax.add_patch(patch)
 
@@ -388,19 +391,61 @@ class CircularGraph:
             return plt.get_cmap(cmap)
         return cmap  # assume it's a valid Colormap object
 
+    # def generate_graph(
+    #     self,
+    #     group_cmap=None,
+    #     metadata_cmap=None,
+    #     edge_cmap=None,
+    #     node_size=10,
+    #     edge_alpha=0.8,
+    #     figsize=(8, 8),
+    #     edge_scaling=3,
+    #     save_path=None,
+    #     show_graph=False,
+    # ):
     def generate_graph(
         self,
-        group_cmap=None,
-        metadata_cmap=None,
-        edge_cmap=None,
-        node_size=10,
-        edge_alpha=0.8,
-        figsize=(8, 8),
-        edge_scaling=3,
-        save_path=None,
-        show_graph=False,
-    ):
+        group_cmap: Optional[Union[str, Colormap]] = None,
+        metadata_cmap: Optional[Union[str, Colormap]] = None,
+        edge_cmap: Optional[Union[str, Colormap]] = None,
+        node_size: int = 10,
+        edge_alpha: float = 0.8,
+        figsize: Tuple[float, float] = (8, 8),
+        edge_scaling: float = 3,
+        save_path: Optional[str] = None,
+        show_graph: bool = False,
+    ) -> Tuple[Figure, Axes]:
+        """
+        Generate a circular connectome plot using preloaded data and layout configuration.
 
+        Parameters
+        ----------
+        group_cmap : str or matplotlib.colors.Colormap, optional
+            Colormap used to distinguish node groups (e.g., lobes or networks). Defaults to 'tab20'.
+        metadata_cmap : str or matplotlib.colors.Colormap, optional
+            Colormap used to color the outer node ring based on metadata values. Defaults to 'viridis'.
+        edge_cmap : str or matplotlib.colors.Colormap, optional
+            Colormap used to color edges based on connection weight. Defaults to 'plasma'.
+        node_size : int, optional
+            Size of the nodes in the plot. Defaults to 10.
+        edge_alpha : float, optional
+            Transparency level for edges (0–1). Defaults to 0.8.
+        figsize : tuple of float, optional
+            Size of the matplotlib figure. Defaults to (8, 8).
+        edge_scaling : float, optional
+            Multiplier applied to edge weights to adjust edge thickness. Defaults to 3.
+        save_path : str, optional
+            If provided, saves the figure to this path (as a PNG).
+        show_graph : bool, optional
+            If True, displays the graph immediately using plt.show().
+
+        Returns
+        -------
+        fig : matplotlib.figure.Figure
+            The generated matplotlib figure object.
+        ax : matplotlib.axes.Axes
+            The corresponding axes object with the plotted graph.
+        """
         # 1. Layout
         base_pos, inner_pos, outer_pos, labels_pos, angles = self._compute_positions()
 
@@ -411,6 +456,10 @@ class CircularGraph:
         self._group_cmap = self._resolve_cmap(group_cmap, "tab20")
         self._metadata_cmap = self._resolve_cmap(metadata_cmap, "viridis")
         self._edge_cmap = self._resolve_cmap(edge_cmap, "plasma")
+        # Optional debugging prints
+        # print("Edge cmap:", self._edge_cmap.name)
+        # print("Metadata cmap:", self._metadata_cmap.name)
+        # print("Group cmap:", self._group_cmap.name)
 
         # 3. Color and label inputs
         grp_nums, meta_vals, labels = self._get_node_colors_and_labels(g)

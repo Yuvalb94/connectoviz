@@ -162,14 +162,14 @@ def plot_circular_connectome(
     # step 6: show the graph(unless you want to customize it further)
 
     fig, ax = circ_graph.generate_graph(
-        group_cmap="Pastel1",
-        metadata_cmap="pink",
-        edge_cmap="managua",
-        node_size=10,
-        edge_alpha=0.8,
-        figsize=(8, 8),
-        edge_scaling=3,
-        save_path=None,
-        show_graph=False,
+        group_cmap=group_cmap,
+        metadata_cmap=metadata_cmap,
+        edge_cmap=edge_cmap,
+        node_size=node_size,
+        edge_alpha=edge_alpha,
+        figsize=figsize,
+        edge_scaling=edge_scaling,
+        save_path=save_path,
+        show_graph=show_graph,
     )
     return fig, ax

@@ -20,6 +20,7 @@ from connectoviz.utils.handle_layout_prefrences import (
     handle_layout,
     handle_layers,
 )
+import warnings
 
 # next line commented out so pre commit wont kill me
 # from connectoviz.utils.validation import validate_connectome_inputs
@@ -60,12 +61,17 @@ class Connectome:
     ):
         self.con_mat: np.ndarray = parse_matrix(con_mat)
         self.atlas: pd.DataFrame = atlas
-        self.mapping, self.index_col, self.label_col = self._validate_maps(
-            mapping, node_vec, label_vec, index_col, label_col
+        self.mapping, self.index_col, self.label_col = (
+            self._validate_maps(mapping, node_vec, label_vec, index_col, label_col)
+            if mapping is not None
+            else (None, index_col, label_col)
         )
         self.node_metadata: pd.DataFrame = self._process_metadata(node_metadata)
 
-        self.merged_metadata: Optional[pd.DataFrame] = self._apply_merge()
+        self.merged_metadata: Optional[Dict[str, pd.DataFrame]] = (
+            self._apply_merge()
+        )  # merge the atlas with metadata-
+        # in a dict format in case of grouping by hemi.
 
     def _process_metadata(self, metadata):
         # Your logic for checking and standardizing metadata
@@ -78,9 +84,26 @@ class Connectome:
     def _apply_merge(self):
         """
         use the merge_metadata function to merge the atlas with metadata
+
+        Returns
+        -------
+        a dict of DataFrames with the merged metadata.
         """
-        if self.node_metadata is None or self.node_metadata.empty:
-            raise ValueError("Node metadata is not specified or empty.")
+        if (
+            self.node_metadata is None
+            or (
+                isinstance(self.merged_metadata, pd.DataFrame)
+                and self.merged_metadata.empty
+            )
+            or (isinstance(self.merged_metadata, dict) and not self.merged_metadata)
+        ):
+            # raise a warning  and return the atlas
+            warnings.warn(
+                "Node metadata is not specified or empty. setting the atlas as the merged metadata."
+            )
+
+            return {"All": self.atlas}
+
         if self.atlas is None or self.atlas.empty:
             raise ValueError("Atlas is not specified or empty.")
         # merge the metadata with the atlas and get the number of nodes from con_mat
@@ -92,8 +115,9 @@ class Connectome:
                 "Node metadata does not match the number of nodes in the connectivity matrix."
             )
         combined_metadata = merge_metadata(self.atlas, self.node_metadata)
+        merged_meta = {"All": combined_metadata}
 
-        return combined_metadata
+        return merged_meta
 
     def _validate_maps(
         self,
@@ -128,6 +152,8 @@ class Connectome:
         atlas: pd.DataFrame,
         node_metadata: Optional[pd.DataFrame],
         mapping: Optional[Union[Dict[str, str], pd.DataFrame]] = None,
+        index_col: Optional[str] = None,
+        label_col: Optional[str] = None,
     ):
         """
         Create a Connectome instance from input parameters.
@@ -142,6 +168,10 @@ class Connectome:
             Node-level metadata (same length as con_mat).
         mapping : dict or DataFrame, optional
             Optional remapping of node indices to labels.
+        index_col : str, optional
+            Column name in the atlas for node indices.
+        label_col : str, optional
+            Column name in the atlas for node labels.
 
         Returns
         -------
@@ -152,16 +182,33 @@ class Connectome:
         # check mapping
 
         # Validate and process the atlas
-        atlas_bool, _, _ = atlas_check(atlas)
+        if mapping is not None:
+            atlas_bool, indx_col_r, label_col_r = atlas_check(
+                atlas, index_col=None, label_col=None, mapping=mapping
+            )
+
+        else:
+            atlas_bool, _, _ = atlas_check(atlas, index_col, label_col, mapping=None)
+
         if not atlas_bool:
             raise ValueError("Atlas is not valid or empty.")
-
-        return Connectome(
-            con_mat=con_mat,
-            atlas=atlas,
-            node_metadata=node_metadata,
-            mapping=mapping,
-        )
+        if mapping is not None:
+            return Connectome(
+                con_mat=con_mat,
+                atlas=atlas,
+                node_metadata=node_metadata,
+                mapping=mapping,
+                index_col=indx_col_r,
+                label_col=label_col_r,
+            )
+        else:
+            return Connectome(
+                con_mat=con_mat,
+                atlas=atlas,
+                node_metadata=node_metadata,
+                index_col=index_col,
+                label_col=label_col,
+            )
 
     def reorder_nodes(self, layout_dict: Dict[str, Any]):
         """
@@ -173,20 +220,46 @@ class Connectome:
             - 'hemi': bool, whether to reorder by hemisphere.
             - 'other': bool, whether to include nodes not grouped by the specified hemisphere.
             - 'grouping': str, metadata column to group nodes by.
-            - 'display_node_names': bool, whether to display node names.
-            - 'display_group_names': bool, whether to display group names.
+            - 'node_name': str, column name for node names in the metadata.
+            - 'display_node_name': bool, whether to display node names.
+            - 'display_group_name': bool, whether to display group names.
         Returns
         h
 
 
 
         """
-        # dfs_and_more=handle_layout
-        handled_nodes, _, _, _ = handle_layout(self.node_metadata, layout_dict)
+        # sorting nodes based on the layout_dict by the nodal metadata or atlas
+        if self.node_metadata is None or self.node_metadata.empty:
+            atlas_bool, idx_col, label_col = atlas_check(
+                self.atlas, self.index_col, self.label_col, self.mapping
+            )
+            if not atlas_bool:
+                raise ValueError("Atlas is not valid or empty.")
+            else:
+                # add a coloumn named 'node_index' to the atlas based on the len of the con_mat
+                if (
+                    "node_index" not in self.atlas.columns
+                    and self.con_mat.shape[0] == self.atlas.shape[0]
+                ):
+                    self.atlas["node_index"] = np.arange(1, self.con_mat.shape[0] + 1)
+                # also if grouping inr nonw and is name of a column in the atlas, change the name of that coloumn to node_name
+                if (
+                    layout_dict["grouping"] is not None
+                    and layout_dict["grouping"] in self.atlas.columns
+                ):
+                    self.atlas["group_name"] = self.atlas[layout_dict["grouping"]]
+
+                    # self.atlas.rename(columns={layout_dict["grouping"]: "group_name"}, inplace=True)
+                self.index_col = idx_col
+                self.label_col = label_col
+                handled_nodes, _, _, _ = handle_layout(self.atlas, layout_dict)
+        else:
+            handled_nodes, _, _, _ = handle_layout(self.node_metadata, layout_dict)
         # set the handeled nodes as the merged metadata
         self.merged_metadata = handled_nodes
 
-    def apply_layers(self, layers_list: List[str]):
+    def apply_layers(self, layers_list: List[str], label: str = "Label"):
         """
         Apply layers to the connectivity matrix based on the provided layers list.
         for know- just filtering the metadata based on it
@@ -194,14 +267,16 @@ class Connectome:
         ----------
         layers_list : list
             List of metadata columns to apply as layers.
+        label : str
+            The label column with numbers of ROIs in the metadata DataFrame. by default is "Label".
         Returns
         -------
         """
-        if self.merged_metadata is None or self.merged_metadata.empty:
+        if self.merged_metadata is None:
             raise ValueError("Merged metadata is not specified or empty.")
         # check if the layers_list is valid
-        gilterd_metadata = handle_layers(self.merged_metadata, layers_list)
-        if gilterd_metadata is None or gilterd_metadata.empty:
+        gilterd_metadata = handle_layers(self.merged_metadata, layers_list, label)
+        if gilterd_metadata is None:
             raise ValueError("Filtered metadata is not specified or empty.")
 
         self.merged_metadata = gilterd_metadata

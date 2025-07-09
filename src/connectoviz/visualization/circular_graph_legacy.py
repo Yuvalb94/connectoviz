@@ -1,173 +1,16 @@
-import pandas as pd
 import numpy as np
 import networkx as nx
 import matplotlib.pyplot as plt
 import math
 from matplotlib.path import Path as MplPath
 import matplotlib.patches as patches
-from pathlib import Path
-from typing import Tuple
-
-
-def load_data(
-    connectivity_matrix_path: str | Path,
-    atlas_path: str | Path,
-    grouping_name: str = "Lobe",
-    label: str = "Label",
-    roi_names: str = "ROIname",
-    hemisphere: str = "Hemi",
-    left_symbol: str = "L",
-    right_symbol: str = "R",
-    metadata: str | None = None,
-    display_node_names: bool = False,
-    display_group_names: bool = False,
-):
-    """_summary_
-
-    Args:
-        connectivity_matrix_path (str | Path):
-            path to CSV with connectivity matrix
-        atlas_path (str | Path):
-            path to CSV with metadata table, having cols: node label, node name, hemisphere name, metadata parameter values (optional, any amt)
-        grouping_name (str, optional):
-            name of a col with group names. Defaults to "Lobe".
-        label (str, optional):
-            name of a col with node labels (int indices, starint with 1). Defaults to "Label".
-        roi_names (str, optional):
-            name of a col with node names. Defaults to "ROIname".
-        hemisphere (str, optional):
-            name of a col with hemisphere labels. Defaults to "Hemi".
-        left_symbol (str, optional):
-            symbol, encoding left hemispehere in 'hemisphere' col. Defaults to "L".
-        right_symbol (str, optional):
-            symbol, encoding right hemispehere in 'hemisphere' col. Defaults to "R".
-        metadata (str | None, optional):
-            name of a col with meatdata parameter values. Only single col accepted. Defaults to None.
-        display_node_names (bool, optional):
-            flag to display node names (from 'roi_names') on the graph. Defaults to False.
-        display_group_names (bool, optional):
-            flag to display group names (from 'grouping_name') on the graph. Defaults to False.
-
-    Raises:
-        ValueError("Connectivity matrix size must match atlas labels."):
-            Connectivity matrix is not square, or num of nodes in connectivity matrix and metadata DF don't match
-        ValueError(f"Atlas missing required column '{col}'"):
-            One of the mandatory colnames isn't provided
-        ValueError(f"Atlas missing required column '{metadata}'"):
-            Provided colname for matadata doesn't exist in metadata DF
-
-    Returns:
-        conn,
-        groups,
-        metadata_map,
-        metadata_label,
-        row_names_map,
-        display_node_names,
-        display_group_names,
-    """
-
-    conn = pd.read_csv(connectivity_matrix_path, header=None).to_numpy()
-    atlas = pd.read_csv(atlas_path)
-
-    # basic shape & column checks
-    n, m = conn.shape
-    num_rois = atlas[label].max()
-    if n != m or n != num_rois:
-        raise ValueError("Connectivity matrix size must match atlas labels.")
-
-    for col in (grouping_name, label, roi_names, hemisphere):
-        if col not in atlas.columns:
-            raise ValueError(f"Atlas missing required column '{col}'")
-
-    # optional metadata
-    if metadata is not None and metadata not in atlas.columns:
-        raise ValueError(f"Atlas missing required column '{metadata}'")
-
-    # build metadata and name maps (or empty if none)
-    if metadata is None:
-        metadata_map = {}
-        metadata_label = None
-    else:
-        metadata_map = dict(zip(atlas[label] - 1, atlas[metadata]))
-        metadata_label = metadata
-
-    row_names_map = dict(zip(atlas[label] - 1, atlas[roi_names]))
-
-    # enforce L/R/else
-    atlas = atlas.copy()
-    atlas[hemisphere] = atlas[hemisphere].apply(
-        lambda x: x if x in (left_symbol, right_symbol) else "else"
-    )
-    groups_hemi = atlas.groupby(hemisphere)
-
-    # helper: get group‐DataFrame or empty
-    def _get(side):
-        return (
-            groups_hemi.get_group(side)
-            if side in groups_hemi.groups
-            else atlas.iloc[0:0]
-        )
-
-    # build the three hemisphere‐based dictionaries
-    left_df = _get(left_symbol)
-    right_df = _get(right_symbol)
-    else_df = _get("else")
-
-    groups = [
-        create_dictionary(left_df, grouping_name, label, roi_names),
-        create_dictionary(right_df, grouping_name, label, roi_names),
-        create_dictionary(else_df, grouping_name, label, roi_names),
-    ]
-
-    return (
-        conn,
-        groups,
-        metadata_map,
-        metadata_label,
-        row_names_map,
-        display_node_names,
-        display_group_names,
-    )
-
-
-def create_dictionary(grouped_by_hemisphere, grouping_name, label, roi_names):
-    """
-    This function groups the ROIs according to a grouping variable within hemisphere.
-
-    Parameters
-    ----------
-    grouped_by_hemisphere: DataFrame
-        Part of the matrix that related to specific hemisphere.
-    grouping_name: string
-        The name of variable by which we will group ROIs in the graph.
-        the name of grouping variaible must be
-    label: string
-        Name of column in the atlas that contains the numbers (labels) of the ROIs
-    roi_names: string
-        Name of column in the atlas that contains the ROIs names.
-        These names will be presented on the circular graph
-
-    Returns
-    -------
-    groups: Dictionary<string,List<(int, string)>
-        Dictionary of groups of ROIs, divided by the grouping variable.
-        The keys are the groups names. The values are lists of tuples, each tuple represents a ROI in the group.
-        Each tuple contains the index of a ROI in the connectivity matrix (starting from zero) and the ROI name.
-        for example:  {"Frontal lobe": [(0, precentral gyrus), (1, SFG), (2, MFG), (3, IFG)}
-
-    """
-
-    grouped_atlas = grouped_by_hemisphere.groupby([grouping_name])
-    groups_names = list(grouped_atlas.groups.keys())
-    groups = {}
-    for group in groups_names:
-        group_df = grouped_atlas.get_group(group)
-        groups[group] = list(zip(group_df[label] - 1, group_df[roi_names]))
-    return groups
+from connectoviz.core.connectome import Connectome
+from typing import Dict, Any, Optional, Tuple
+from connectoviz.utils.handle_layout_prefrences import create_dictionary
 
 
 def normalize_and_set_threshold(
-    connectivity_matrix: np.ndarray, threshold: float = 0.5
+    connectivity_matrix: np.ndarray, threshold: Optional[float] = 0.1
 ):
     """
     This function gets a connectivity matrix and normalize its values between 0 to 1.
@@ -187,6 +30,8 @@ def normalize_and_set_threshold(
     filtered_matrix: np.ndarray
         connecitivty matrix after thresholding and normalization
     """
+    if threshold is None:
+        threshold = 0.1
     if threshold < 0 or threshold > 1:
         raise ValueError("Threshold value must be between 0-1!")
 
@@ -239,7 +84,6 @@ class CircularGraph:
         display_group_names : bool
             Flag to control the display of group labels.
         """
-
         self.matrix = connectivity_matrix
         self.groups = groups
         self.metadata_map = metadata_map
@@ -255,20 +99,26 @@ class CircularGraph:
     ):
         """
         Compute positions so that:
-        - A large gap of `large_gap_arc` sits centered at 90° (π/2).
-        - If there are any 'else' nodes, carve out `else_arc = small_gap_arc` at 270°,
+          - A large gap of `large_gap_arc` sits centered at 90° (π/2).
+          - If there are any 'else' nodes, carve out `else_arc = small_gap_arc` at 270°,
             and shrink each hemi by half of that.
-        - Within each hemi, groups get arcs proportional to their node counts,
+          - Within each hemi, groups get arcs proportional to their node counts,
             separated by fixed `small_gap_arc`.
         """
-        left_dict, right_dict, else_dict = self.groups
-        group_names = list(left_dict.keys())
+        left_dict, right_dict, else_dict = (
+            self.groups
+            if len(self.groups) == 3
+            else (self.groups[0], self.groups[1], {})
+        )
+        # group_names = list(left_dict.keys()) joseph added
+        group_names = sorted(set(left_dict.keys()).union(right_dict.keys()))
+        # Ensure all groups are represented in the order of left, right if there isnt symmetry
         H = len(group_names)
 
         sg = small_gap_arc
         lg = large_gap_arc
 
-        # see if we have any bottom‐(else) nodes
+        # 1) see if we have any bottom‐(else) nodes
         all_else = [idx for grp in else_dict for idx, _ in else_dict[grp]]
         n_else = len(all_else)
         if n_else:
@@ -289,13 +139,13 @@ class CircularGraph:
             total_nodes = total_left + total_right + total_else
             total_small_gaps = small_gap_arc * (gaps_left + gaps_right + gaps_else)
 
-            # compute per-node spacing so that:
+            # 1) compute per-node spacing so that:
             #    2π = large_top_gap + total_small_gaps + per_node_arc * total_nodes
             per_node_arc = (
                 2 * math.pi - large_gap_arc - total_small_gaps
             ) / total_nodes
 
-            # turn counts into group‐arcs
+            # 2) turn counts into group‐arcs
             left_arcs = [per_node_arc * c for c in left_counts]
             right_arcs = [per_node_arc * c for c in right_counts]
             else_arcs = [per_node_arc * c for c in else_counts]
@@ -307,7 +157,7 @@ class CircularGraph:
         # carve out top gap (2 * lg) and bottom gap (2 * lg + else_arc), split remaining half/half
         hemi_arc = math.pi - lg - (else_arc / 2)
 
-        # compute how much of hemi_arc each group gets
+        # 3) compute how much of hemi_arc each group gets
         left_counts = [len(left_dict.get(grp, [])) for grp in group_names]
         right_counts = [len(right_dict.get(grp, [])) for grp in group_names]
         total_left = sum(left_counts) or 1
@@ -317,13 +167,13 @@ class CircularGraph:
         left_arcs = [avail_arc * (c / total_left) for c in left_counts]
         right_arcs = [avail_arc * (c / total_right) for c in right_counts]
 
-        # starting angles for each hemi
+        # 4) starting angles for each hemi
         left_start = math.pi / 2 + lg / 2
         right_start = math.pi / 2 - lg / 2
 
         angles = {}
 
-        # left hemi: counterclockwise
+        # LEFT hemi: counterclockwise
         theta = left_start
         for arc, grp, cnt in zip(left_arcs, group_names, left_counts):
             items = left_dict.get(grp, [])
@@ -333,7 +183,7 @@ class CircularGraph:
                     angles[idx] = theta + frac * arc
             theta += arc + sg
 
-        # right hemi: clockwise
+        # RIGHT hemi: clockwise
         theta = right_start
         for arc, grp, cnt in zip(right_arcs, group_names, right_counts):
             items = right_dict.get(grp, [])
@@ -343,13 +193,13 @@ class CircularGraph:
                     angles[idx] = theta - frac * arc
             theta -= arc + sg
 
-        # else hemi: bottom
+        # 5) ELSE group at bottom, spanning else_arc
         if n_else:
             for j, idx in enumerate(all_else):
                 frac = (j + 0.5) / n_else
                 angles[idx] = 3 * math.pi / 2 + (frac - 0.5) * else_arc
 
-        # build position dicts
+        # 6) build your position dicts
         base_pos = {n: (math.cos(a), math.sin(a)) for n, a in angles.items()}
         inner_pos = base_pos.copy()
         outer_pos = {n: (1.1 * x, 1.1 * y) for n, (x, y) in base_pos.items()}
@@ -601,57 +451,217 @@ class CircularGraph:
         return fig, ax
 
 
-# ---------------------------- usage ----------------------------
+def calcu_missing_pos_nodes_amount(
+    connectivity_matrix: np.ndarray, groups: list
+) -> tuple[list[tuple[str, int]], list[int]]:
+    """
+    Calculate the missing nodes in the connectivity matrix based on the row names map.
+    Parameters
+    ----------
+    connectivity_matrix: np.ndarray
+        n X n matrix where n is the number of ROIs in  the atlas.
+        Each cell in the matrix describes the connection between each pair of ROIs.
+    row_names_map: dict
+        A dictionary mapping node labels to node names.
+    Returns
+    -------
+    tuple that contains:
+    list[tuple[str,int]]
+         A list of tuples where each tuple contains the group name and the number of
+           nodes in that group.
+        includes all nodes in the connectivity matrix, all those that are grouped and those that are not grouped.
+    list
+        A list of ungrouped nodes in the connectivity matrix.
+    """
+    # All nodes in the matrix
+    all_nodes = set(range(connectivity_matrix.shape[0]))
 
-# Path to the current script
-SCRIPT_DIR = Path(__file__).resolve().parent
+    # Nodes that are in any group
+    grouped_nodes = set()
+    for hemi in groups:
+        for grp_items in hemi.values():
+            grouped_nodes.update(idx for idx, _ in grp_items)
 
-# Path to the data directory (going up one level from visualization/)
-ATLAS_DIR = SCRIPT_DIR.parent / "data" / "atlases" / "available_atlases"
-MAT_DIR = SCRIPT_DIR.parent / "data" / "connectomes"
+    # Ungrouped nodes
+    ungrouped_nodes = all_nodes - grouped_nodes
 
-atlas_fname = r"fan2016/MNI152/space-MNI152_atlas-fan2016_res-1mm_dseg.csv"
-matrix_fname = r"fan2016.csv"
-# Now construct full paths
-atlas_path = ATLAS_DIR / atlas_fname
+    print(f"Total nodes: {len(all_nodes)}")
+    print(f"Grouped nodes: {len(grouped_nodes)}")
+    print(f"Ungrouped nodes: {len(ungrouped_nodes)} → {sorted(ungrouped_nodes)}")
+    # create a tuple for total, grouped and ungrouped nodes
+    all_nodes_tuple = ("Total nodes", len(all_nodes))
+    grouped_nodes_tuple = ("Grouped nodes", len(grouped_nodes))
+    ungrouped_nodes_tuple = ("Ungrouped nodes", len(ungrouped_nodes))
+    return [
+        all_nodes_tuple,
+        grouped_nodes_tuple,
+        ungrouped_nodes_tuple,
+    ], list(ungrouped_nodes)
 
-matrix_path = MAT_DIR / matrix_fname
-conn, groups, metadata_map, metadata_label, row_names_map, disp_nodes, disp_groups = (
-    load_data(
-        connectivity_matrix_path=matrix_path,
-        atlas_path=atlas_path,
-        grouping_name="Lobe",
-        label="Label",
-        roi_names="ROIname",
-        hemisphere="Hemi",
-        metadata="Yeo_17network",
-        display_node_names=False,
-        display_group_names=True,
+
+# Generate functions to handle ungrouped nodes in the connectome visualization
+# These functions provide two options for dealing with ungrouped nodes:
+# 1. Assign them to a group named 'Ungrouped' in each hemisphere.
+# 2. Filter them out of the connectivity matrix entirely.
+# --- Option A: Assign ungrouped nodes to 'Ungrouped' ---
+def assign_ungrouped_to_group(groups, ungrouped_nodes):
+    """
+    Adds all ungrouped nodes into a group named 'Ungrouped' in each hemisphere.
+    """
+    for hemi_dict in groups:
+        if ungrouped_nodes:
+            hemi_dict["Ungrouped"] = [
+                (idx, f"Node_{idx}") for idx in sorted(ungrouped_nodes)
+            ]
+    return groups
+
+
+# --- Option B: Filter ungrouped nodes out of graph ---
+def filter_ungrouped_from_graph(connectome, ungrouped_nodes):
+    """
+    Filters ungrouped nodes out of the connectivity matrix.
+    """
+    filtered_matrix = connectome.con_mat.copy()
+    for idx in sorted(ungrouped_nodes):
+        filtered_matrix[idx, :] = 0
+        filtered_matrix[:, idx] = 0
+    return filtered_matrix
+
+
+# Generate function that visualizes a connectome using the CircularGraph class
+def visualize_connectome(
+    connectome: Connectome,
+    layout_dict: Dict[str, Any],
+    label: str = "Label",
+    roi_names: str = "ROIname",
+    track_by: Optional[str] = None,
+    threshold: Optional[float] = 0.0,
+) -> CircularGraph:
+    """
+    Visualize a connectome using a circular graph layout.
+    Parameters
+    ----------
+    connectome: Connectome
+        A Connectome object containing the connectivity matrix ,atlas and more.
+    layout_dict: Dict[str, Any]
+        A dictionary containing layout preferences, including:
+          - 'hemi': bool, whether to reorder by hemisphere.
+          - 'other': bool, whether to include nodes not grouped by the specified hemisphere.
+          - 'grouping': str, metadata column to group nodes by.
+          - 'node_name': str, column name for node names in the metadata.
+          - 'display_node_name': bool, whether to display node names.
+          - 'display_group_name': bool, whether to display group names.
+    label: str
+        The column name in the atlas that contains the labels(numbers) for the ROIs.
+    roi_names: str
+        The column name in the atlas that contains the names of the ROIs.
+    track_by: str
+        The column name in the atlas or metadata that contains the metadata to track by (e.g., Yeo_7network).
+    threshold: float
+        A float between 0 and 1 to threshold the connectivity matrix after normalization.
+        Values lower than this threshold are set to zero.
+    Returns
+    -------
+    circular_graph
+        An instance of the circular_graph class containing the visualized connectome.
+
+    """
+    if connectome.merged_metadata is None:
+        raise ValueError("merged_metadata is None. Cannot continue.")
+
+    # now taking the merged metadata and divide to different hemi DataFrames
+    hemis_dfs = []
+    for hemi in connectome.merged_metadata.keys():
+        # get the merged metadata_dict and filter by  key 'hemi'
+        hemi_df = connectome.merged_metadata[hemi]
+        hemis_dfs.append(hemi_df)
+    # use create-dictionary to create groups
+    groups = []
+    for hemi_df in hemis_dfs:
+        groups.append(
+            create_dictionary(hemi_df, layout_dict["grouping"], label, roi_names)
+        )
+    lis_len_nodes, ungrouped_nodes = calcu_missing_pos_nodes_amount(
+        connectome.con_mat, groups
     )
-)
+    # Option A: Assign ungrouped to 'Ungrouped'
+    groups = assign_ungrouped_to_group(groups, ungrouped_nodes)
+    conn = connectome.con_mat
+    # Option B: Filter ungrouped nodes completely
+    # conn = filter_ungrouped_from_graph(connectome, grouped_nodes)
+    # get the connectivity matrix and normalize it
 
-filtered = normalize_and_set_threshold(conn, threshold=0.1)
+    filtered = normalize_and_set_threshold(conn, threshold=threshold)
+    # get the metadata_map and metadata_label
+    if (
+        connectome.merged_metadata is None
+        or track_by is None
+        or not any(track_by in df.columns for df in connectome.merged_metadata.values())
+    ):
+        metadata_map = dict(zip(connectome.atlas[label] - 1, connectome.atlas[label]))
+        metadata_label = None
+    else:
+        # if track_by is in the atlas, use it, otherwise use the node_metadata
+        if track_by in connectome.atlas.columns:
+            metadata_track = track_by
+            # if values in connectome.atlas[metadata_track] are int or float continue
+            if connectome.atlas[metadata_track].dtype in [np.int64, np.float64]:
+                metadata_map = dict(
+                    zip(connectome.atlas[label] - 1, connectome.atlas[metadata_track])
+                )
+            else:
+                # take all unique values and map them to integers
+                unique_values = connectome.atlas[metadata_track].unique()
+                value_to_int = {v: i for i, v in enumerate(unique_values)}
+                metadata_map = dict(
+                    zip(
+                        connectome.atlas[label] - 1,
+                        connectome.atlas[metadata_track].map(value_to_int),
+                    )
+                )
+            # metadata_map = dict(
+            #     zip(connectome.atlas[label] - 1, connectome.atlas[metadata_track])
+            # )
+            metadata_label = metadata_track
+        elif (
+            connectome.node_metadata is not None
+            and track_by in connectome.node_metadata.columns
+        ):
+            metadata_track = track_by
+            if connectome.node_metadata[metadata_track].dtype in [np.int64, np.float64]:
+                metadata_map = dict(
+                    zip(
+                        connectome.atlas[label] - 1,
+                        connectome.node_metadata[metadata_track],
+                    )
+                )
+            else:
+                # take all unique values and map them to integers
+                unique_values = connectome.node_metadata[metadata_track].unique()
+                value_to_int = {v: i for i, v in enumerate(unique_values)}
+                # map the values to integers
+                metadata_map = dict(
+                    zip(
+                        connectome.atlas[label] - 1,
+                        connectome.node_metadata[metadata_track].map(value_to_int),
+                    )
+                )
 
-cg = CircularGraph(
-    connectivity_matrix=filtered,
-    groups=groups,
-    metadata_map=metadata_map,
-    metadata_label=metadata_label,
-    row_names_map=row_names_map,
-    display_node_names=disp_nodes,
-    display_group_names=disp_groups,
-)
+            metadata_label = metadata_track
+        else:
+            raise ValueError(
+                f"Metadata '{track_by}' not found in atlas or node metadata."
+            )
 
-fig, ax = cg.generate_graph(
-    group_cmap="Pastel1",
-    metadata_cmap="pink",
-    edge_cmap="managua",
-    node_size=10,
-    edge_alpha=0.8,
-    figsize=(8, 8),
-    edge_scaling=3,
-    save_path=None,
-    show_graph=False,
-)
-
-plt.show()  # Show the plot if not saving
+    row_names_map = dict(zip(connectome.atlas[label] - 1, connectome.atlas[roi_names]))
+    cg = CircularGraph(
+        connectivity_matrix=filtered,
+        groups=groups,
+        metadata_map=metadata_map,
+        metadata_label=metadata_label,
+        row_names_map=row_names_map,
+        display_node_names=layout_dict["display_node_name"],
+        display_group_names=layout_dict["display_group_name"],
+    )
+    # cg.show_graph()
+    return cg
